@@ -1,5 +1,9 @@
 const STORAGE_KEY = "movie-collection";
+const OMDB_API_KEY = "c9915b84";
 
+const searchForm = document.getElementById("searchForm");
+const searchTitle = document.getElementById("searchTitle");
+const searchResults = document.getElementById("searchResults");
 const movieForm = document.getElementById("movieForm");
 const movieList = document.getElementById("movieList");
 const searchInput = document.getElementById("searchInput");
@@ -11,6 +15,7 @@ const watchedCount = document.getElementById("watchedCount");
 const averageRating = document.getElementById("averageRating");
 
 let movies = loadMovies();
+let currentSearchResults = [];
 
 function loadMovies() {
   const savedMovies = localStorage.getItem(STORAGE_KEY);
@@ -25,10 +30,80 @@ function uid() {
   return (Date.now() + Math.random()).toString(36).slice(2);
 }
 
-function normalizeRating(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return 0;
-  return Math.min(10, Math.max(0, num));
+async function searchMoviesOnline(query) {
+  if (!query.trim()) {
+    searchResults.innerHTML = '<p class="info-text">Enter a movie title to search.</p>';
+    return;
+  }
+
+  searchResults.innerHTML = '<p class="loading-text">Searching...</p>';
+  currentSearchResults = [];
+
+  try {
+    const response = await fetch(
+      `https://www.omdbapi.com/?s=${encodeURIComponent(query)}&type=movie&apikey=${OMDB_API_KEY}`
+    );
+    const data = await response.json();
+
+    if (data.Response === "False") {
+      searchResults.innerHTML = '<p class="info-text">No movies found. Try another search.</p>';
+      return;
+    }
+
+    currentSearchResults = data.Search || [];
+    displaySearchResults();
+  } catch (error) {
+    console.error("Search error:", error);
+    searchResults.innerHTML = '<p class="error-text">Error searching movies. Please try again.</p>';
+  }
+}
+
+function displaySearchResults() {
+  searchResults.innerHTML = "";
+
+  if (!currentSearchResults.length) {
+    searchResults.innerHTML = '<p class="info-text">No results found.</p>';
+    return;
+  }
+
+  const template = document.getElementById("searchResultTemplate");
+
+  currentSearchResults.forEach((result) => {
+    const clone = template.content.cloneNode(true);
+    const title = clone.querySelector(".result-title");
+    const year = clone.querySelector(".result-year");
+    const addBtn = clone.querySelector(".add-result-btn");
+
+    title.textContent = result.Title;
+    year.textContent = `(${result.Year})`;
+
+    const movieData = {
+      title: result.Title,
+      year: result.Year,
+      imdbId: result.imdbID
+    };
+
+    addBtn.addEventListener("click", () => addMovieFromSearch(movieData));
+
+    searchResults.appendChild(clone);
+  });
+}
+
+function addMovieFromSearch(movieData) {
+  const movie = {
+    id: uid(),
+    title: movieData.title,
+    year: movieData.year,
+    imdbId: movieData.imdbId,
+    watched: false,
+    rating: 0
+  };
+
+  movies.unshift(movie);
+  saveMovies();
+  searchTitle.value = "";
+  searchResults.innerHTML = "";
+  render();
 }
 
 function getFilteredMovies() {
@@ -36,12 +111,7 @@ function getFilteredMovies() {
   const filter = filterSelect.value;
 
   return movies.filter((movie) => {
-    const matchesQuery =
-      !query ||
-      movie.title.toLowerCase().includes(query) ||
-      movie.director.toLowerCase().includes(query) ||
-      movie.genre.toLowerCase().includes(query);
-
+    const matchesQuery = !query || movie.title.toLowerCase().includes(query);
     const matchesFilter =
       filter === "all" ||
       (filter === "watched" && movie.watched) ||
@@ -54,14 +124,10 @@ function getFilteredMovies() {
 function updateStats() {
   const watched = movies.filter((movie) => movie.watched).length;
   const total = movies.length;
-  const ratings = movies
-    .map((movie) => Number(movie.rating) || 0)
-    .filter((value) => value > 0);
-  const avg = ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : 0;
 
   totalCount.textContent = String(total);
   watchedCount.textContent = String(watched);
-  averageRating.textContent = avg.toFixed(1);
+  averageRating.textContent = String(total);
 }
 
 function renderMovies() {
@@ -71,7 +137,7 @@ function renderMovies() {
   if (!visibleMovies.length) {
     movieList.innerHTML = `
       <div class="empty-state">
-        <p>No movies found. Add one to start your collection.</p>
+        <p>No movies in your collection. Search and add one!</p>
       </div>
     `;
     return;
@@ -84,21 +150,14 @@ function renderMovies() {
     const title = clone.querySelector(".movie-title");
     const meta = clone.querySelector(".movie-meta");
     const badge = clone.querySelector(".badge");
-    const ratingPill = clone.querySelector(".rating-pill");
     const toggleBtn = clone.querySelector(".toggle-btn");
     const deleteBtn = clone.querySelector(".delete-btn");
 
     title.textContent = movie.title;
-    const metaText = [movie.director || "Unknown director", movie.genre || "General", movie.year || "N/A"]
-      .filter(Boolean)
-      .join(" • ");
-    meta.textContent = metaText;
+    meta.textContent = movie.year ? `Year: ${movie.year}` : "Added to collection";
 
     badge.textContent = movie.watched ? "Watched" : "Plan to watch";
     badge.classList.toggle("unwatched", !movie.watched);
-
-    const rating = Number(movie.rating) || 0;
-    ratingPill.textContent = rating ? `Rating: ${rating.toFixed(1)}` : "No rating";
 
     toggleBtn.textContent = movie.watched ? "Mark Unwatched" : "Mark Watched";
     toggleBtn.classList.toggle("unwatched", !movie.watched);
@@ -113,8 +172,7 @@ function renderMovies() {
 function addMovie(event) {
   event.preventDefault();
 
-  const formData = new FormData(movieForm);
-  const title = (formData.get("title") || "").toString().trim();
+  const title = document.getElementById("title").value.trim();
 
   if (!title) {
     return;
@@ -123,11 +181,9 @@ function addMovie(event) {
   const movie = {
     id: uid(),
     title,
-    director: (formData.get("director") || "").toString().trim(),
-    genre: (formData.get("genre") || "").toString().trim(),
-    year: (formData.get("year") || "").toString().trim(),
-    rating: normalizeRating(formData.get("rating") || 0),
-    watched: Boolean(formData.get("watched"))
+    watched: document.getElementById("watched").checked,
+    year: new Date().getFullYear().toString(),
+    rating: 0
   };
 
   movies.unshift(movie);
@@ -169,6 +225,11 @@ function render() {
   updateStats();
   renderMovies();
 }
+
+searchForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  searchMoviesOnline(searchTitle.value);
+});
 
 movieForm.addEventListener("submit", addMovie);
 searchInput.addEventListener("input", renderMovies);

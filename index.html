@@ -10,7 +10,7 @@
     <div class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Personal Library</p>
+          <p class="eyebrow">Movie Tracker</p>
           <h1>Movie Collection</h1>
         </div>
         <button id="clearAllBtn" class="danger-btn" type="button">Clear All</button>
@@ -18,45 +18,32 @@
 
       <main class="layout">
         <section class="panel form-panel">
-          <h2>Add Movie</h2>
+          <h2>Search & Add</h2>
+          <form id="searchForm">
+            <label>
+              <span>Search Movie Title</span>
+              <input id="searchTitle" name="searchTitle" type="text" placeholder="e.g. Inception" />
+            </label>
+            <button class="primary-btn" type="submit">Search Online</button>
+          </form>
+
+          <div id="searchResults" class="search-results"></div>
+
+          <hr class="divider" />
+
+          <h3>Add Manually</h3>
           <form id="movieForm">
-            <div class="field-row">
-              <label>
-                <span>Title</span>
-                <input id="title" name="title" type="text" placeholder="e.g. Inception" required />
-              </label>
-            </div>
-
-            <div class="field-row two-col">
-              <label>
-                <span>Director</span>
-                <input id="director" name="director" type="text" placeholder="Christopher Nolan" />
-              </label>
-
-              <label>
-                <span>Genre</span>
-                <input id="genre" name="genre" type="text" placeholder="Sci-Fi" />
-              </label>
-            </div>
-
-            <div class="field-row two-col">
-              <label>
-                <span>Year</span>
-                <input id="year" name="year" type="number" min="1888" max="2100" placeholder="2024" />
-              </label>
-
-              <label>
-                <span>Rating</span>
-                <input id="rating" name="rating" type="number" min="0" max="10" step="0.1" placeholder="8.5" />
-              </label>
-            </div>
+            <label>
+              <span>Movie Title</span>
+              <input id="title" name="title" type="text" placeholder="e.g. Inception" required />
+            </label>
 
             <label class="checkbox-wrap">
               <input id="watched" name="watched" type="checkbox" />
-              <span>Watched</span>
+              <span>Already watched</span>
             </label>
 
-            <button class="primary-btn" type="submit">Save Movie</button>
+            <button class="primary-btn" type="submit">Add Movie</button>
           </form>
         </section>
 
@@ -64,7 +51,7 @@
           <div class="toolbar">
             <h2>My Movies</h2>
             <div class="controls">
-              <input id="searchInput" type="search" placeholder="Search movies..." aria-label="Search movies" />
+              <input id="searchInput" type="search" placeholder="Search by title..." aria-label="Search by title" />
               <select id="filterSelect" aria-label="Filter movies">
                 <option value="all">All</option>
                 <option value="watched">Watched</option>
@@ -76,7 +63,7 @@
           <div class="stats" id="stats">
             <div><strong id="totalCount">0</strong><span>Total</span></div>
             <div><strong id="watchedCount">0</strong><span>Watched</span></div>
-            <div><strong id="averageRating">0.0</strong><span>Avg Rating</span></div>
+            <div><strong id="averageRating">0</strong><span>In Collection</span></div>
           </div>
 
           <div id="movieList" class="movie-list" aria-live="polite"></div>
@@ -95,11 +82,20 @@
         </div>
 
         <div class="movie-details">
-          <span class="rating-pill"></span>
           <button class="toggle-btn" type="button"></button>
           <button class="delete-btn" type="button">Delete</button>
         </div>
       </article>
+    </template>
+
+    <template id="searchResultTemplate">
+      <div class="search-result-card">
+        <div class="result-info">
+          <h4 class="result-title"></h4>
+          <p class="result-year"></p>
+        </div>
+        <button class="add-result-btn" type="button">Add to Collection</button>
+      </div>
     </template>
 
     <script src="script.js"></script>
